@@ -1,6 +1,7 @@
 const express = require('express');
 const mysql = require('mysql');
 const bodyParser = require('body-parser');
+const bcrypt = require('bcrypt'); 
 
 // Создание подключения к базе данных
 const connection = mysql.createConnection({
@@ -10,46 +11,63 @@ const connection = mysql.createConnection({
   database: 'ваша_база_данных'   // База данных
 });
 
-connection.connect();
+connection.connect((err) => {
+  if (err) {
+    console.error('Ошибка подключения к базе данных:', err);
+    return;
+  }
+  console.log('Подключение к базе данных успешно установлено.');
+});
 
 const app = express();
 app.use(bodyParser.json());
 
-// Эндпоинт для авторизации
-app.post('/auth', function (req, res) {
-  const { Login, Password } = req.body;
-  // Запрос к базе данных для проверки пользователя. !!!! Необходимо заменить на свою таблицу и колонку
-  const query = 'SELECT uuid, login FROM users WHERE login = ? AND password = ?';
-  connection.query(query, [Login, Password], function (error, results) {
+app.post('/auth', (req, res) => {
+  const { username, password } = req.body;
+
+  if (!username || !password) {
+    return res.status(400).json({ Message: 'Логин и пароль обязательны' });
+  }
+
+  const query = 'SELECT uuid, login, password FROM users WHERE LOWER(login) = LOWER(?)';
+  connection.query(query, [username], async (error, results) => {
     if (error) {
+      console.error('Ошибка выполнения запроса к базе данных:', error);
       return res.status(500).json({ Message: 'Ошибка на сервере' });
     }
+
     if (results.length > 0) {
-      // Пользователь найден
-      res.json({
-        Login: results[0].login,
-        UserUuid: results[0].uuid,
-        Message: 'Успешная авторизация'
-      });
-    } else {
-      // Проверка наличия пользователя с таким логином
-      connection.query('SELECT login FROM users WHERE login = ?', [Login], function (error, results) {
-        if (error) {
-          return res.status(500).json({ Message: 'Ошибка на сервере' });
-        }
-        if (results.length > 0) {
-          // Неверный пароль
-          res.status(401).json({ Message: 'Неверный логин или пароль' });
+      
+
+      const user = results[0];
+
+      const dbPassword = user.password.startsWith('$2y$')
+        ? user.password.replace('$2y$', '$2a$')
+        : user.password;
+
+      try {
+        const match = await bcrypt.compare(password.trim(), dbPassword);
+
+        if (match) {
+          return res.json({
+            Login: user.login,
+            UserUuid: user.uuid,
+            Message: 'Успешная авторизация'
+          });
         } else {
-          // Пользователь не найден
-          res.status(404).json({ Message: 'Пользователь не найден' });
+          return res.status(401).json({ Message: 'Неверный логин или пароль' });
         }
-      });
+      } catch (bcryptError) {
+        console.error('Ошибка при сравнении пароля с хэшем:', bcryptError);
+        return res.status(500).json({ Message: 'Ошибка на сервере' });
+      }
+    } else {
+      return res.status(404).json({ Message: 'Пользователь не найден' });
     }
   });
 });
 
 const PORT = 3000;
-app.listen(PORT, function () {
-  console.log(`Server is running on port ${PORT}`);
+app.listen(PORT, () => {
+  console.log(`Сервер запущен на порту ${PORT}`);
 });
