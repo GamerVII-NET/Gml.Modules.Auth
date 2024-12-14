@@ -1,5 +1,5 @@
 const express = require('express');
-const mysql = require('mysql');
+const mysql = require('mysql2');
 const bodyParser = require('body-parser');
 const bcrypt = require('bcrypt'); 
 
@@ -79,7 +79,7 @@ app.post('/auth', (req, res) => {
 });
 
 const PORT = 3000;
-app.listen(PORT, () => {
-  console.log(`Сервер запущен на порту ${PORT}`);
-});
 
+app.listen(PORT, function () {
+  console.log(`Server is running on port ${PORT}`);
+});
