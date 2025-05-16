@@ -106,9 +106,14 @@ curl -X POST \
 
 ## Установка
 1 - Переходим в `modules > ajax`
-2 - Заливаем наш файл `launcher_auth.php`
+
+2 - Заливаем наш файл `auth..php`
+
 3 - Переходим в главную директорию и открываем `system.php`
+
 4 - В самом конце находим `$core->csrf_check();`, и редактируем его, чтоб оно было таким:
+
+
 ```json
 if (!isset($_GET['mode']) || $_GET['mode'] !== 'ajax') {
     $core->csrf_check();
